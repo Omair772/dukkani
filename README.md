@@ -5,23 +5,32 @@
 ---
 
 ## 📖 نظرة عامة | Overview
-تطبيق **دكاني** هو مشروع متكامل يجمع بين قوة أداء **Flutter** وجمالية التصميم العصري (**Neon & Glassmorphism**). تم تطويره ليوفر تجربة تسوق فريدة تركز على المنتجات الحصرية والوجبات الحارة، مع واجهة مستخدم تفاعلية تدعم الموبايل والويب.
+تطبيق **دكاني** هو مشروع متكامل يجمع بين قوة أداء **Flutter** وجمالية التصميم العصري (**Neon & Glassmorphism**). تم تطويره ليوفر تجربة تسوق فريدة، مع واجهة مستخدم تفاعلية تدعم الموبايل والويب، ومدعومة بربط حي للبيانات ونظام ذكي للعمل بدون إنترنت.
 
 ## ✨ المميزات | Features
 * 🌑 **Neon Dark Theme:** تصميم داكن احترافي مع إضاءات نيون جذابة.
-* 🍔 **Spicy Menu:** عرض تفاعلي للوجبات (تاكو، نودلز كوري، بيتزا هالبينو) بصور عالية الجودة.
+* 📡 **Live API & Offline Support:** جلب البيانات برمجياً من خادم خارجي مع نظام تخزين مؤقت (Caching) لضمان عمل التطبيق بدون إنترنت.
+* 🛒 **Data Persistence:** حفظ سلة التسوق وقائمة المفضلة محلياً في ذاكرة الجهاز.
+* 🍔 **Spicy Menu:** عرض تفاعلي للوجبات بصور عالية الجودة.
 * 🌐 **Cross-Platform:** نسخة ويب كاملة مرفوعة على Netlify.
-* ⚡ **Optimized Performance:** سرعة عالية في التنقل واستجابة سريعة للعناصر.
-* 🎨 **Custom Branding:** هوية بصرية مخصصة وشعار احترافي فريد.
+* ⚡ **Optimized Performance:** إدارة حالة متقدمة (State Management) لضمان سرعة الاستجابة.
 
 ## 🛠️ التقنيات المستخدمة | Tech Stack
-* **Framework:** [Flutter](https://flutter.dev) (Latest Stable Version).
-* **Language:** [Dart](https://dart.dev).
+* **Framework:** [Flutter](https://flutter.dev) & Dart.
+* **State Management:** Provider.
+* **Networking & Storage:** `http` for REST API, `shared_preferences` for local caching.
 * **Hosting:** [Netlify](https://www.netlify.com).
 * **UI Style:** Glassmorphism & Neon Design.
 
 ## 🚀 استعراض الموقع | Live Demo
 يمكنك زيارة نسخة الويب الحية من التطبيق عبر الرابط التالي:
-🔗 **[ https://bejewelled-custard-b339bf.netlify.app/]**
+🔗 **[Dukkani Live App](https://dukkani-by-omair.netlify.app/)**
 
 ---
+
+## 👨‍💻 المطور | Developer
+**Eng. OmairSadeq Aldedaa**
+*Information Technology Engineer | Full-Stack Developer*
+
+* **GitHub:** [@Omair772](https://github.com/Omair772)
+* **University:** Taiz University - Faculty of Engineering and Information Technology
