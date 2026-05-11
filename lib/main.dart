@@ -1,13 +1,17 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
-// --- 1. نموذج البيانات وإدارة الحالة (Provider) ---
+// --- 1. نموذج البيانات (Models) ---
 
 class Product {
   final String id;
   final String name;
   final String category;
   final String imagePath;
+  final String description;
   final double price;
   bool isFavorite;
 
@@ -17,96 +21,138 @@ class Product {
     required this.category,
     required this.imagePath,
     required this.price,
+    this.description = "",
     this.isFavorite = false,
   });
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product(
+      id: json['id'].toString(),
+      name: json['title'] ?? '',
+      category: json['category'] ?? '',
+      imagePath: json['image'] ?? '',
+      description: json['description'] ?? '',
+      price: (json['price'] ?? 0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': name,
+    'category': category,
+    'image': imagePath,
+    'description': description,
+    'price': price,
+  };
 }
 
 class CartItem {
   final Product product;
   int quantity;
-
   CartItem({required this.product, this.quantity = 1});
+
+  Map<String, dynamic> toJson() => {
+    'product': product.toJson(),
+    'quantity': quantity,
+  };
+
+  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
+    product: Product.fromJson(json['product']),
+    quantity: json['quantity'],
+  );
 }
 
+// --- 2. إدارة الحالة (Provider) ---
+
 class DukaniProvider extends ChangeNotifier {
-  final List<Product> _products = [
-    // --- وجبات خفيفة (10) ---
-    Product(id: 's1', name: 'شيبس مشكل عائلي', category: 'وجبات خفيفة', imagePath: 'assets/images/chips.png', price: 500),
-    Product(id: 's2', name: 'بسكويت مالح ديمة', category: 'وجبات خفيفة', imagePath: 'assets/images/cookies.png', price: 200),
-    Product(id: 's3', name: 'فشار بالكراميل', category: 'وجبات خفيفة', imagePath: 'assets/images/popcorn.png', price: 300),
-    Product(id: 's4', name: 'مكسرات مشكلة ربع', category: 'وجبات خفيفة', imagePath: 'assets/images/nuts.png', price: 1200),
-    Product(id: 's5', name: 'كرواسون شوكولاتة', category: 'وجبات خفيفة', imagePath: 'assets/images/croissant.png', price: 450),
-    Product(id: 's6', name: 'كيك بالفانيليا', category: 'وجبات خفيفة', imagePath: 'assets/images/cake.png', price: 350),
-    Product(id: 's7', name: 'أصابع البطاطس حار', category: 'وجبات خفيفة', imagePath: 'assets/images/sticks.png', price: 250),
-    Product(id: 's8', name: 'معمول بالتمر', category: 'وجبات خفيفة', imagePath: 'assets/images/maamoul.png', price: 600),
-    Product(id: 's9', name: 'شوكولاتة جالاكسي', category: 'وجبات خفيفة', imagePath: 'assets/images/galaxy.png', price: 700),
-    Product(id: 's10', name: 'علكة بالنعناع', category: 'وجبات خفيفة', imagePath: 'assets/images/gum.png', price: 100),
+  List<Product> _products = [];
+  List<CartItem> _cart = [];
+  List<String> _favoriteIds = [];
 
-    // --- عصائر (10) ---
-    Product(id: 'j1', name: 'عصير برتقال طازج', category: 'عصائر', imagePath: 'assets/images/orange.png', price: 800),
-    Product(id: 'j2', name: 'كوكتيل فواكه', category: 'عصائر', imagePath: 'assets/images/cocktail.png', price: 1200),
-    Product(id: 'j3', name: 'عصير مانجو مركز', category: 'عصائر', imagePath: 'assets/images/mango.png', price: 900),
-    Product(id: 'j4', name: 'سموذي فراولة', category: 'عصائر', imagePath: 'assets/images/strawberry.png', price: 1100),
-    Product(id: 'j5', name: 'ليمون بالنعناع', category: 'عصائر', imagePath: 'assets/images/lemon.png', price: 750),
-    Product(id: 'j6', name: 'عصير جوافة طبيعي', category: 'عصائر', imagePath: 'assets/images/guava.png', price: 800),
-    Product(id: 'j7', name: 'عصير رمان حامض', category: 'عصائر', imagePath: 'assets/images/pomegranate.png', price: 1500),
-    Product(id: 'j8', name: 'حليب بالموز', category: 'عصائر', imagePath: 'assets/images/banana_milk.png', price: 850),
-    Product(id: 'j9', name: 'عصير تفاح أخضر', category: 'عصائر', imagePath: 'assets/images/apple.png', price: 900),
-    Product(id: 'j10', name: 'آيس تي خوخ', category: 'عصائر', imagePath: 'assets/images/ice_tea.png', price: 700),
-
-    // --- سلاشات (10) ---
-    Product(id: 'l1', name: 'سلاش توت أزرق', category: 'سلاشات', imagePath: 'assets/images/slush_blue.png', price: 700),
-    Product(id: 'l2', name: 'سلاش بطيخ أحمر', category: 'سلاشات', imagePath: 'assets/images/slush_red.png', price: 700),
-    Product(id: 'l3', name: 'سلاش ليمون بارد', category: 'سلاشات', imagePath: 'assets/images/slush_lemon.png', price: 600),
-    Product(id: 'l4', name: 'سلاش فيمتو أصلي', category: 'سلاشات', imagePath: 'assets/images/slush_vimto.png', price: 800),
-    Product(id: 'l5', name: 'سلاش كرز منعش', category: 'سلاشات', imagePath: 'assets/images/slush_cherry.png', price: 750),
-    Product(id: 'l6', name: 'سلاش عنب بارد', category: 'سلاشات', imagePath: 'assets/images/slush_grape.png', price: 700),
-    Product(id: 'l7', name: 'سلاش برتقال مثلج', category: 'سلاشات', imagePath: 'assets/images/slush_orange.png', price: 650),
-    Product(id: 'l8', name: 'سلاش أناناس ذهبي', category: 'سلاشات', imagePath: 'assets/images/slush_pineapple.png', price: 800),
-    Product(id: 'l9', name: 'سلاش كولا غازي', category: 'سلاشات', imagePath: 'assets/images/slush_cola.png', price: 600),
-    Product(id: 'l10', name: 'سلاش قوس قزح مشكل', category: 'سلاشات', imagePath: 'assets/images/slush_rainbow.png', price: 1000),
-
-    // --- وجبات حارقة (10) ---
-    Product(id: 'f1', name: 'برجر التنين الناري', category: 'وجبات حارقة', imagePath: 'assets/images/burger.png', price: 2500),
-    Product(id: 'f2', name: 'باستا ديابلو حارة', category: 'وجبات حارقة', imagePath: 'assets/images/pasta.png', price: 2200),
-    Product(id: 'f3', name: 'أجنحة دجاج بوفالو', category: 'وجبات حارقة', imagePath: 'assets/images/wings.png', price: 1800),
-    Product(id: 'f4', name: 'زنجر حراق سوبر', category: 'وجبات حارقة', imagePath: 'assets/images/zinger.png', price: 1600),
-    Product(id: 'f5', name: 'بطاطس تشيلي سبايسي', category: 'وجبات حارقة', imagePath: 'assets/images/chili_fries.png', price: 1300),
-    Product(id: 'f6', name: 'بيتزا الهالبينو', category: 'وجبات حارقة', imagePath: 'assets/images/pizza_hot.png', price: 3500),
-    Product(id: 'f7', name: 'تاكو مكسيكي ناري', category: 'وجبات حارقة', imagePath: 'assets/images/taco.png', price: 1400),
-    Product(id: 'f8', name: 'رول دجاج فلفل', category: 'وجبات حارقة', imagePath: 'assets/images/chicken_roll.png', price: 1200),
-    Product(id: 'f9', name: 'نودلز كوري x2 حراق', category: 'وجبات حارقة', imagePath: 'assets/images/noodles.png', price: 1100),
-    Product(id: 'f10', name: 'ناجتس حراق جداً', category: 'وجبات حارقة', imagePath: 'assets/images/nuggets.png', price: 1400),
-  ];
-
-  String _selectedCategory = 'وجبات خفيفة';
-  final List<CartItem> _cart = [];
+  bool _isLoading = true;
+  bool _isOffline = false;
+  String _selectedCategory = '';
 
   List<Product> get products => _products;
+  List<CartItem> get cart => _cart;
+  bool get isLoading => _isLoading;
+  bool get isOffline => _isOffline;
   String get selectedCategory => _selectedCategory;
   List<Product> get favoriteProducts => _products.where((p) => p.isFavorite).toList();
-  List<CartItem> get cart => _cart;
+
+  DukaniProvider() {
+    fetchData();
+  }
+
+  Future<void> fetchData() async {
+    _isLoading = true;
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // تحميل المفضلة والسلة المحفوظة
+    final String? savedFavs = prefs.getString('fav_ids');
+    if (savedFavs != null) {
+      _favoriteIds = List<String>.from(json.decode(savedFavs));
+    }
+
+    final String? savedCart = prefs.getString('cart_data');
+    if (savedCart != null) {
+      final List<dynamic> cartJson = json.decode(savedCart);
+      _cart = cartJson.map((item) => CartItem.fromJson(item)).toList();
+    }
+
+    try {
+      final response = await http.get(Uri.parse('https://gist.githubusercontent.com/Omair772/b67e36ad77580c9cba511ebaa7bddc5b/raw/1eb9d12273e9357aa4284762b869b1b3f5f45c07/dukani.json'));
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonData = json.decode(response.body);
+        _products = jsonData.map((data) => Product.fromJson(data)).toList();
+        await prefs.setString('cached_data', response.body);
+        _isOffline = false;
+      }
+    } catch (e) {
+      _isOffline = true;
+      final String? cachedData = prefs.getString('cached_data');
+      if (cachedData != null) {
+        final List<dynamic> jsonData = json.decode(cachedData);
+        _products = jsonData.map((data) => Product.fromJson(data)).toList();
+      }
+    }
+
+    for (var p in _products) {
+      if (_favoriteIds.contains(p.id)) p.isFavorite = true;
+    }
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> _saveCartToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String cartJson = json.encode(_cart.map((item) => item.toJson()).toList());
+    await prefs.setString('cart_data', cartJson);
+  }
 
   void selectCategory(String categoryName) {
     _selectedCategory = categoryName;
     notifyListeners();
   }
 
-  void toggleFavorite(String productId) {
+  Future<void> toggleFavorite(String productId) async {
     final index = _products.indexWhere((p) => p.id == productId);
     if (index != -1) {
       _products[index].isFavorite = !_products[index].isFavorite;
+      _products[index].isFavorite ? _favoriteIds.add(productId) : _favoriteIds.remove(productId);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('fav_ids', json.encode(_favoriteIds));
       notifyListeners();
     }
   }
 
   void addToCart(Product product) {
     final index = _cart.indexWhere((item) => item.product.id == product.id);
-    if (index != -1) {
-      _cart[index].quantity++;
-    } else {
-      _cart.add(CartItem(product: product));
-    }
+    index != -1 ? _cart[index].quantity++ : _cart.add(CartItem(product: product));
+    _saveCartToPrefs();
     notifyListeners();
   }
 
@@ -114,6 +160,7 @@ class DukaniProvider extends ChangeNotifier {
     final index = _cart.indexWhere((item) => item.product.id == productId);
     if (index != -1) {
       _cart[index].quantity++;
+      _saveCartToPrefs();
       notifyListeners();
     }
   }
@@ -126,19 +173,15 @@ class DukaniProvider extends ChangeNotifier {
       } else {
         _cart.removeAt(index);
       }
+      _saveCartToPrefs();
       notifyListeners();
     }
-  }
-
-  void removeFromCart(String productId) {
-    _cart.removeWhere((item) => item.product.id == productId);
-    notifyListeners();
   }
 
   double get cartTotal => _cart.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
 }
 
-// --- 2. التطبيق والسمات العامة ---
+// --- 3. التطبيق والسمات ---
 
 void main() {
   runApp(
@@ -165,6 +208,10 @@ class DukaniApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: darkBg,
         primaryColor: neonPurple,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: darkBg,
+          elevation: 0,
+        ),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: darkCard,
           selectedItemColor: neonPurple,
@@ -176,7 +223,7 @@ class DukaniApp extends StatelessWidget {
   }
 }
 
-// --- 3. شاشة التنقل الرئيسية (Navigation) ---
+// --- 4. شاشة التنقل الرئيسية ---
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -191,7 +238,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const HomeScreen(),
     const FavoritesScreen(),
     const CartScreen(),
-    const Center(child: Text('حساب المستخدم')),
+    const AuthScreen(),
   ];
 
   @override
@@ -200,48 +247,121 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return Scaffold(
       body: Directionality(textDirection: TextDirection.rtl, child: _pages[_selectedIndex]),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        type: BottomNavigationBarType.fixed,
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
-          BottomNavigationBarItem(
-            icon: Badge(
-              label: Text(provider.favoriteProducts.length.toString()),
-              isLabelVisible: provider.favoriteProducts.isNotEmpty,
-              child: const Icon(Icons.favorite),
+      bottomNavigationBar: Directionality(
+        textDirection: TextDirection.rtl,
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (index) => setState(() => _selectedIndex = index),
+          type: BottomNavigationBarType.fixed,
+          items: [
+            const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
+            BottomNavigationBarItem(
+              icon: Badge(
+                label: Text(provider.favoriteProducts.length.toString()),
+                isLabelVisible: provider.favoriteProducts.isNotEmpty,
+                child: const Icon(Icons.favorite),
+              ),
+              label: 'المفضلة',
             ),
-            label: 'المفضلة',
-          ),
-          BottomNavigationBarItem(
-            icon: Badge(
-              label: Text(provider.cart.length.toString()),
-              isLabelVisible: provider.cart.isNotEmpty,
-              backgroundColor: DukaniApp.neonBlue,
-              child: const Icon(Icons.shopping_cart),
+            BottomNavigationBarItem(
+              icon: Badge(
+                label: Text(provider.cart.length.toString()),
+                isLabelVisible: provider.cart.isNotEmpty,
+                backgroundColor: DukaniApp.neonBlue,
+                textColor: Colors.black,
+                child: const Icon(Icons.shopping_cart),
+              ),
+              label: 'السلة',
             ),
-            label: 'السلة',
+            const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'حسابي'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- 5. شاشة الحساب (AuthScreen) وإضافة حقوق النشر ---
+
+class AuthScreen extends StatelessWidget {
+  const AuthScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 30),
+      child: Column(
+        children: [
+          const Spacer(),
+          const Icon(Icons.account_circle, size: 100, color: DukaniApp.neonPurple),
+          const SizedBox(height: 20),
+          const Text(
+            'أهلاً بك في دكاني',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'حسابي'),
+          const SizedBox(height: 10),
+          const Text(
+            'سجل دخولك لتتمكن من إتمام الطلبات ومتابعتها بكل سهولة',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 40),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DukaniApp.neonPurple,
+              minimumSize: const Size(double.infinity, 55),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            ),
+            onPressed: () {},
+            child: const Text('تسجيل الدخول', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
+          ),
+          const SizedBox(height: 15),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: DukaniApp.neonBlue),
+              minimumSize: const Size(double.infinity, 55),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            ),
+            onPressed: () {},
+            child: const Text('إنشاء حساب جديد', style: TextStyle(color: DukaniApp.neonBlue, fontSize: 18)),
+          ),
+          const Spacer(),
+          // قسم حقوق النشر والتصميم
+          Column(
+            children: [
+              const Text(
+                'Made with ❤️ by',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Eng. OmairSadeq Aldedaa',
+                style: TextStyle(
+                  color: DukaniApp.neonBlue.withOpacity(0.8),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 30),
+            ],
+          )
         ],
       ),
     );
   }
 }
 
-// --- 4. شاشة المربعات الأربعة (HomeScreen) ---
+// --- 6. الشاشة الرئيسية (HomeScreen) ---
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   bool isCategorySelected = false;
-
   final List<Map<String, dynamic>> mainCategories = [
     {'n': 'وجبات خفيفة', 'c': DukaniApp.neonBlue, 'i': Icons.fastfood},
     {'n': 'عصائر', 'c': Colors.orange, 'i': Icons.local_drink},
@@ -256,67 +376,50 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        const SizedBox(height: 60),
+        const SizedBox(height: 50),
+        if (provider.isOffline)
+          Container(
+            width: double.infinity, color: Colors.orange.shade800, padding: const EdgeInsets.symmetric(vertical: 4),
+            child: const Center(child: Text('وضع عدم الاتصال: عرض البيانات المحفوظة محلياً', style: TextStyle(fontSize: 12))),
+          ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              if (isCategorySelected)
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                  onPressed: () => setState(() => isCategorySelected = false),
-                ),
-              Text(
-                isCategorySelected ? provider.selectedCategory : 'دكاني 👋',
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: SizedBox(
+            height: 50,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (isCategorySelected)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(icon: const Icon(Icons.arrow_back_ios), onPressed: () => setState(() => isCategorySelected = false)),
+                  ),
+                Align(alignment: Alignment.center, child: Text(isCategorySelected ? provider.selectedCategory : 'دكاني 👋', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold))),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 20),
         Expanded(
-          child: AnimatedSwitcher(
+          child: provider.isLoading
+              ? const Center(child: CircularProgressIndicator(color: DukaniApp.neonPurple))
+              : AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: !isCategorySelected
                 ? GridView.builder(
-              key: const ValueKey(1),
               padding: const EdgeInsets.all(20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 20,
-                mainAxisSpacing: 20,
-              ),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 20, mainAxisSpacing: 20),
               itemCount: mainCategories.length,
               itemBuilder: (context, index) {
                 final cat = mainCategories[index];
                 return GestureDetector(
-                  onTap: () {
-                    provider.selectCategory(cat['n']);
-                    setState(() => isCategorySelected = true);
-                  },
-                  child: GlowingNeonBorder(
-                    color: cat['c'],
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(cat['i'], size: 50, color: cat['c']),
-                        const SizedBox(height: 10),
-                        Text(cat['n'], style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cat['c'])),
-                      ],
-                    ),
-                  ),
+                  onTap: () { provider.selectCategory(cat['n']); setState(() => isCategorySelected = true); },
+                  child: GlowingNeonBorder(color: cat['c'], child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(cat['i'], size: 50, color: cat['c']), const SizedBox(height: 10), Text(cat['n'], style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cat['c']))])),
                 );
               },
             )
                 : GridView.builder(
-              key: const ValueKey(2),
               padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-                childAspectRatio: 0.68, // تحسين النسبة لظهور السعر
-              ),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.65),
               itemCount: categoryProducts.length,
               itemBuilder: (context, index) => ProductCard(product: categoryProducts[index]),
             ),
@@ -327,91 +430,230 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- 5. الويجت المساعدة (Neon Border, Product Card) ---
-
 class GlowingNeonBorder extends StatelessWidget {
-  final Widget child;
-  final Color color;
+  final Widget child; final Color color;
   const GlowingNeonBorder({super.key, required this.child, required this.color});
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, spreadRadius: 1)],
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: DukaniApp.darkCard,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.8), width: 2),
-        ),
-        child: child,
-      ),
-    );
+    return Container( decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, spreadRadius: 1)]), child: Container(decoration: BoxDecoration(color: DukaniApp.darkCard, borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(0.8), width: 2)), child: child));
   }
 }
 
 class ProductCard extends StatelessWidget {
   final Product product;
   const ProductCard({super.key, required this.product});
-
   @override
   Widget build(BuildContext context) {
     final p = Provider.of<DukaniProvider>(context, listen: false);
-    return Container(
-      decoration: BoxDecoration(
-        color: DukaniApp.darkCard,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Image.asset(
-                product.imagePath,
-                errorBuilder: (c, e, s) => const Icon(Icons.fastfood, size: 50, color: Colors.grey),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              product.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-          ),
-          const SizedBox(height: 4),
-          // إظهار السعر بوضوح
-          Text(
-            '${product.price.toInt()} ر.ي',
-            style: const TextStyle(color: DukaniApp.neonBlue, fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                icon: Icon(product.isFavorite ? Icons.favorite : Icons.favorite_border, color: Colors.red, size: 22),
-                onPressed: () => p.toggleFavorite(product.id),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add_shopping_cart, color: DukaniApp.neonBlue, size: 22),
-                onPressed: () => p.addToCart(product),
-              ),
-            ],
-          )
-        ],
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailScreen(product: product))),
+      child: Container(
+        decoration: BoxDecoration(color: DukaniApp.darkCard, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+        child: Column(children: [
+          Expanded(child: Padding(padding: const EdgeInsets.all(8), child: Hero(tag: product.id, child: product.imagePath.startsWith('http') ? Image.network(product.imagePath, fit: BoxFit.contain) : Image.asset(product.imagePath, fit: BoxFit.contain)))),
+          Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text('${product.price.toInt()} ر.ي', style: const TextStyle(color: DukaniApp.neonBlue)),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            IconButton(icon: Icon(product.isFavorite ? Icons.favorite : Icons.favorite_border, color: Colors.red), onPressed: () => p.toggleFavorite(product.id)),
+            IconButton(icon: const Icon(Icons.add_shopping_cart, color: DukaniApp.neonBlue), onPressed: () => p.addToCart(product)),
+          ])
+        ]),
       ),
     );
   }
 }
 
-// --- 6. شاشة المفضلة (FavoritesScreen) ---
+// --- 7. شاشة التفاصيل الفاخرة ---
+
+class ProductDetailScreen extends StatelessWidget {
+  final Product product;
+  const ProductDetailScreen({super.key, required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<DukaniProvider>(context, listen: false);
+
+    return Scaffold(
+      backgroundColor: DukaniApp.darkBg,
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 420,
+              pinned: true,
+              stretch: true,
+              backgroundColor: DukaniApp.darkCard,
+              iconTheme: const IconThemeData(color: Colors.white),
+              flexibleSpace: FlexibleSpaceBar(
+                stretchModes: const [StretchMode.zoomBackground],
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.center,
+                          radius: 0.8,
+                          colors: [
+                            DukaniApp.neonPurple.withOpacity(0.15),
+                            DukaniApp.darkBg,
+                          ],
+                        ),
+                      ),
+                    ),
+                    Hero(
+                      tag: product.id,
+                      child: Padding(
+                        padding: const EdgeInsets.all(40.0),
+                        child: product.imagePath.startsWith('http')
+                            ? Image.network(product.imagePath, fit: BoxFit.contain)
+                            : Image.asset(product.imagePath, fit: BoxFit.contain),
+                      ),
+                    ),
+                    const Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, DukaniApp.darkBg],
+                            stops: [0.6, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            product.name,
+                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                          ),
+                        ),
+                        Text(
+                          '${product.price.toInt()} ر.ي',
+                          style: const TextStyle(fontSize: 28, color: DukaniApp.neonBlue, fontWeight: FontWeight.w900),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: DukaniApp.darkCard.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildInfoItem(Icons.star_rounded, "4.8", Colors.amber),
+                          _buildVerticalDivider(),
+                          _buildInfoItem(Icons.local_fire_department_rounded, "حار", Colors.orange),
+                          _buildVerticalDivider(),
+                          _buildInfoItem(Icons.timer_rounded, "15 دقيقة", DukaniApp.neonBlue),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 35),
+                    const Text(
+                      "عن هذه الوجبة",
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 15),
+                    Text(
+                      product.description,
+                      style: TextStyle(
+                        fontSize: 17,
+                        color: Colors.white.withOpacity(0.7),
+                        height: 1.8,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 120),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomSheet: Container(
+        padding: const EdgeInsets.fromLTRB(24, 10, 24, 30),
+        color: DukaniApp.darkBg,
+        child: InkWell(
+          onTap: () {
+            provider.addToCart(product);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("تمت الإضافة للسلة بنجاح 🛍️"),
+                duration: Duration(seconds: 2),
+                backgroundColor: DukaniApp.darkCard,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+          child: Container(
+            height: 65,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [DukaniApp.neonPurple, Color(0xFF9C27B0)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: DukaniApp.neonPurple.withOpacity(0.4),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 26),
+                SizedBox(width: 12),
+                Text(
+                  "أضف إلى السلة",
+                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String label, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 28),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  Widget _buildVerticalDivider() {
+    return Container(height: 30, width: 1, color: Colors.white10);
+  }
+}
+
+// --- 8. شاشة المفضلة ---
 
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
@@ -421,11 +663,11 @@ class FavoritesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('المفضلة ❤️')),
       body: favs.isEmpty
-          ? const Center(child: Text('لا توجد منتجات في المفضلة'))
+          ? const Center(child: Text('لا توجد منتجات في المفضلة', style: TextStyle(fontSize: 18)))
           : GridView.builder(
         padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.68,
+          crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.65,
         ),
         itemCount: favs.length,
         itemBuilder: (context, index) => ProductCard(product: favs[index]),
@@ -434,7 +676,7 @@ class FavoritesScreen extends StatelessWidget {
   }
 }
 
-// --- 7. شاشة السلة (CartScreen) مع أزرار الكمية ---
+// --- 9. شاشة السلة ---
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -444,7 +686,7 @@ class CartScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('سلة التسوق 🛒')),
       body: p.cart.isEmpty
-          ? const Center(child: Text('السلة فارغة حالياً'))
+          ? const Center(child: Text('السلة فارغة حالياً', style: TextStyle(fontSize: 18)))
           : Column(
         children: [
           Expanded(
@@ -459,7 +701,9 @@ class CartScreen extends StatelessWidget {
                   decoration: BoxDecoration(color: DukaniApp.darkCard, borderRadius: BorderRadius.circular(12)),
                   child: Row(
                     children: [
-                      Image.asset(item.product.imagePath, width: 60, height: 60, errorBuilder: (c, e, s) => const Icon(Icons.fastfood)),
+                      item.product.imagePath.startsWith('http')
+                          ? Image.network(item.product.imagePath, width: 60, height: 60)
+                          : Image.asset(item.product.imagePath, width: 60, height: 60, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey)),
                       const SizedBox(width: 15),
                       Expanded(
                         child: Column(
@@ -472,15 +716,9 @@ class CartScreen extends StatelessWidget {
                       ),
                       Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.orange),
-                            onPressed: () => p.decrementQuantity(item.product.id),
-                          ),
+                          IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.orange), onPressed: () => p.decrementQuantity(item.product.id)),
                           Text('${item.quantity}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                            onPressed: () => p.incrementQuantity(item.product.id),
-                          ),
+                          IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.green), onPressed: () => p.incrementQuantity(item.product.id)),
                         ],
                       ),
                     ],
@@ -497,12 +735,10 @@ class CartScreen extends StatelessWidget {
                 minimumSize: const Size(double.infinity, 55),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
-              onPressed: () {
-                // هنا يمكنك إضافة منطق الدفع
-              },
+              onPressed: () {},
               child: Text(
                 'إكمال الطلب (${p.cartTotal.toInt()} ر.ي)',
-                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ),
           )
