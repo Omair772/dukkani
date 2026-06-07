@@ -1,5 +1,6 @@
 name: dukkani
-description: Dukani Snacks & Juices App
+description: A Luxury, High-Performance Flutter E-commerce Application.
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
@@ -8,18 +9,41 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  provider: ^6.1.2
-  http: ^1.2.0
-  shared_preferences: ^2.2.2
+  cupertino_icons: ^1.0.6
 
+  # State Management (إدارة الحالة)
+  provider: ^6.1.2
+
+  # Networking (لجلب البيانات من الـ API)
+  http: ^1.6.0
+
+  # Local Storage (لحفظ السلة والمفضلة والعمل بدون إنترنت)
+  shared_preferences: ^2.2.3
+
+  # Firebase (لقاعدة البيانات وتسجيل الدخول)
+  firebase_core: ^4.10.0
+  firebase_auth: ^6.5.2
+  cloud_firestore: ^6.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
 
+  # App Icon Generator (لإنشاء الأيقونات تلقائياً)
+  flutter_launcher_icons: ^0.13.1
+
 flutter:
   uses-material-design: true
+
+  # مسار الصور (تأكد من وضع صورك وأيقوناتك هنا)
   assets:
     - assets/images/
-    - assets/icon/app_icon.png
+
+# إعدادات أيقونة التطبيق (App Icon Configuration)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/Icon-512.png"
+  adaptive_icon_background: "#0A0E17"
+  adaptive_icon_foreground: "assets/images/Icon-512.png"
